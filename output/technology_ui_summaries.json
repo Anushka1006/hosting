@@ -1,0 +1,212 @@
+{
+  "hdfcbank": {
+    "company": "HDFC Bank",
+    "model": "openai/gpt-oss-20b",
+    "parameters": {
+      "Current Technology Adoption": {
+        "summary": "Core platform capabilities established; data usage improved and early use cases validated via Lighthouse Programmes. Future focus on deeper integration, wider adoption, and greater reuse across the enterprise to strengthen business enablement.",
+        "pages": [
+          "188",
+          "191",
+          "292"
+        ]
+      },
+      "Digital Transformation": {
+        "summary": "Digital innovation drives operational efficiency and customer engagement; 97‑98% of financial transactions are digital, with digital channels contributing 20‑60% across key journeys. The bank invests in digital modernisation, data, automation, and GenAI.",
+        "pages": [
+          "55",
+          "91",
+          "120",
+          "255",
+          "258"
+        ]
+      },
+      "R&D": {
+        "summary": "R&D remains largely in‑house, supported by partnerships with technology ecosystems, fintechs, start‑ups, and academia. Employees increasingly use AI‑enabled tools to reduce manual effort and improve productivity. Environmental and social impact metrics are tracked within R&D and capex investments.",
+        "pages": [
+          "191",
+          "597"
+        ]
+      },
+      "Emerging Technologies": {
+        "summary": "AI powers advanced customer analytics, personalised communication, and behavioural insights. End‑to‑end digital products expand reach among younger, mobile‑first customers, creating a simpler, faster, safer, and more intelligent digital environment. In‑house technology franchise enhances resilience and innovation.",
+        "pages": [
+          "28",
+          "106",
+          "114",
+          "181"
+        ]
+      },
+      "Technology Partnerships": {
+        "summary": "Partnerships with technology ecosystems, academia, fintechs, and start‑ups complement in‑house engineering strengths, supporting core platform development and digital innovation that improves stakeholder engagement and accessibility.",
+        "pages": [
+          "191",
+          "199",
+          "256",
+          "258",
+          "292"
+        ]
+      },
+      "Technology Investments": {
+        "summary": "Investments in infrastructure, including data centre enhancements and cloud alignment, improve performance, security, and scalability. The bank’s extensive physical reach is supported by a strong, reliable digital foundation, ensuring continuity across onboarding, servicing, and support.",
+        "pages": [
+          "106",
+          "188",
+          "258",
+          "597"
+        ]
+      },
+      "Cloud Adoption": {
+        "summary": "Core systems modernised for scale and resilience, with cloud alignment and infrastructure enhancements improving availability, security, and performance. Digital ecosystem upgrades to MobileBanking, NetBanking, website, and payments infrastructure support these improvements.",
+        "pages": [
+          "124",
+          "188",
+          "292",
+          "298"
+        ]
+      },
+      "Automation": {
+        "summary": "Automation enhances customer engagement through real‑time interactions, streamlines card processing and trade operations, strengthens risk oversight with intelligent monitoring, and empowers employees by automating routine tasks. Neev, the in‑house AI platform, underpins these workflows.",
+        "pages": [
+          "27",
+          "55",
+          "183"
+        ]
+      },
+      "Cybersecurity": {
+        "summary": "A comprehensive cybersecurity governance framework includes policy, incident management, and crisis plans, supported by tabletop exercises. The bank complies with ISO 27001:2022, ISO 22301:2019, and PCI DSS, and implements a multi‑layered security strategy to protect personal information.",
+        "pages": [
+          "92",
+          "133",
+          "140",
+          "631"
+        ]
+      },
+      "Future Technology Roadmaps": {
+        "summary": "The bank accelerates fully digital and STP‑led onboarding across all product lines, expands end‑to‑end digital products for younger customers, and strengthens digital capability through focused collaboration and learning interventions.",
+        "pages": [
+          "91",
+          "181",
+          "199",
+          "258"
+        ]
+      },
+      "Technology Pain Areas": {
+        "summary": "Key technology risks include use and operation of IT systems, system availability and performance, cyber and information security threats, and third‑party/vendor dependencies.",
+        "pages": [
+          "43",
+          "132",
+          "133",
+          "141"
+        ]
+      },
+      "AI": {
+        "summary": "AI is deployed across the organization to deliver faster, consistent customer responses, improve credit decisioning, and enable AI‑assisted trade classification. Neev, the in‑house AI platform, provides a secure foundation for model access, governance, and workflow integration.",
+        "pages": [
+          "27",
+          "28",
+          "42",
+          "186"
+        ]
+      },
+      "Tech Risk": {
+        "summary": "Technology risk areas mirror those in Technology Pain Areas: IT system use and operation, system availability and performance, cyber and information security threats, and third‑party/vendor dependencies.",
+        "pages": [
+          "132",
+          "133"
+        ]
+      },
+      "Platforms & Systems": {
+        "summary": "Enterprise‑scale AI foundations are established with Neev, an in‑house AI platform offering unified model access, security, workflows, and data integration. Core platform capabilities are validated through Lighthouse Programmes, with future focus on deeper integration and reuse. Infrastructure investments enhance performance and security.",
+        "pages": [
+          "188",
+          "191",
+          "292"
+        ]
+      },
+      "Talent & Skills": {
+        "summary": "Enterprise‑wide programmes upskill technical, functional, and behavioural competencies, increasing average learning hours per employee. Training, workplace platforms, and tech‑enabled HR processes improve productivity and service quality, while regular cyber drills reinforce a strong cybersecurity culture.",
+        "pages": [
+          "58",
+          "91",
+          "141",
+          "197",
+          "258"
+        ]
+      }
+    },
+    "source_fingerprint": "e7de1bd7b93c14e37f8c481d389ba2f19116062facfd43051e1b2cdcc0d7faca"
+  },
+  "divislaboratories": {
+    "company": "Divi's Laboratories Ltd.",
+    "model": "openai/gpt-oss-20b",
+    "parameters": {
+      "Current Technology Adoption": {
+        "summary": "The company is investing in backward integration, domestic capacity creation, technology adoption, and sustainable manufacturing to reduce dependence on imported key starting materials and improve supply resilience. Rising regulatory expectations and compliance costs reinforce entry barriers, favoring scaled, quality‑focused players with strong governance and manufacturing systems.",
+        "pages": [
+          "47"
+        ]
+      },
+      "R&D": {
+        "summary": "Innovation focuses on practical, lifecycle‑driven R&D, emphasizing processes that simplify manufacturing, reduce environmental impact, and maintain efficiency. The company’s own R&D centres develop technologies for active pharmaceutical ingredients and intermediates, which are implemented in manufacturing, enhancing compliance, reducing variability, and improving cost efficiency.",
+        "pages": [
+          "8",
+          "12",
+          "46",
+          "70"
+        ]
+      },
+      "Emerging Technologies": {
+        "summary": "The company’s R&D centres develop and implement technologies for active pharmaceutical ingredients and intermediates, continuously reviewing and optimizing processes. These efforts lower production costs, enable consistent exports, and strengthen competitiveness in the global market.",
+        "pages": [
+          "70"
+        ]
+      },
+      "Technology Partnerships": {
+        "summary": "The company relies on bilateral and regional trade partnerships and supplier diversification to mitigate concentration risks, evolving procurement toward risk‑adjusted frameworks prioritising supply assurance and compliance. Its Custom Synthesis business, serving global innovators, contributes over half of revenues, underscoring the importance of chemistry‑led collaboration and ESG considerations in supplier selection.",
+        "pages": [
+          "3",
+          "7",
+          "45"
+        ]
+      },
+      "Technology Investments": {
+        "summary": "Software maintenance costs are expensed as incurred. Intangible assets carried at 1st April 2015 GAAP values are used as deemed cost under Ind AS. Research and development expenses are fully charged to expense in the period incurred, with uncertainties in new product development precluding capitalization.",
+        "pages": [
+          "51",
+          "103",
+          "135"
+        ]
+      },
+      "Cybersecurity": {
+        "summary": "Information security systems are constantly tested, updated, and expanded, supported by employee training on data protection and secure online banking. The company implements EDR, endpoint and server protection, automated prevention and detection, perimeter security, web security tools, enhanced vulnerability detection, and network segmentation based on business criticality. Enterprise‑wide risk management oversees cybersecurity alongside business, regulatory, ESG, and operational risks.",
+        "pages": [
+          "49",
+          "54",
+          "65"
+        ]
+      },
+      "Technology Pain Areas": {
+        "summary": "Commercial success now requires effective lifecycle management across indication expansion, combination therapies, and sustained market access. Rising R&D costs and longer development timelines make operational reliability across the supply chain critical to preserving commercial value.",
+        "pages": [
+          "46"
+        ]
+      },
+      "Tech Risk": {
+        "summary": "The company has a comprehensive business continuity framework to mitigate disruptive events, employing alternative solutions to reduce damage. Sustainable operations are pursued by assessing risks of sourcing and manufacturing, implementing optimal processes to minimize or de‑risk operations. An IT policy ensures data and system protection, with continuous testing and updates of security systems.",
+        "pages": [
+          "48",
+          "49",
+          "54"
+        ]
+      },
+      "Talent & Skills": {
+        "summary": "The company offers a rewarding work environment with career development opportunities, extensive training programs to enhance skills and expertise, and a focus on employee well-being and professional growth.",
+        "pages": [
+          "14"
+        ]
+      }
+    },
+    "source_fingerprint": "fc77fd7c13d65267b7e6231e543ebfb1a126554d67466325d10da8ea05fafa99"
+  }
+}

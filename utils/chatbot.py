@@ -208,24 +208,24 @@ def question_wants_broad_technology_detail(question: str) -> bool:
     )
 
 def question_wants_detailed_technology_evidence(question: str) -> bool:
-    """True only when the user explicitly asks for annual-report evidence."""
+    """Return True only when the user explicitly asks for raw/source evidence."""
     q = str(question or "").lower()
-    # evidence_patterns = [
-    #     r"\boriginal\s+evidence\b",
-    #     r"\braw\s+evidence\b",
-    #     r"\bdetailed\s+evidence\b",
-    #     r"\bannual[ -]?report\s+evidence\b",
-    #     r"\bsource\s+(?:details|references?|documents?)\b",
-    #     r"\bpage(?:\s*[- ]?wise)?\s+(?:numbers?|references?|evidence|details)\b",
-    #     r"\bpage\s+numbers?\b",
-    #     r"\bcitations?\b",
-    #     r"\bshow\s+(?:me\s+)?(?:the\s+)?evidence\b",
-    #     r"\bprovide\s+(?:me\s+)?(?:the\s+)?evidence\b",
-    #     r"\bgive\s+(?:me\s+)?(?:the\s+)?evidence\b",
-    #     r"\bextracts?\s+from\s+(?:the\s+)?annual[ -]?report\b",
-    #     r"\bquote\s+(?:from\s+)?(?:the\s+)?annual[ -]?report\b",
-    # ]
-    # return any(re.search(pattern, q) for pattern in evidence_patterns)
+    evidence_patterns = [
+        r"\boriginal\s+evidence\b",
+        r"\braw\s+evidence\b",
+        r"\bdetailed\s+evidence\b",
+        r"\bannual[ -]?report\s+evidence\b",
+        r"\bsource\s+(?:details|references?|documents?)\b",
+        r"\bpage(?:\s*[- ]?wise)?\s+(?:numbers?|references?|evidence|details)\b",
+        r"\bpage\s+numbers?\b",
+        r"\bcitations?\b",
+        r"\bshow\s+(?:me\s+)?(?:the\s+)?evidence\b",
+        r"\bprovide\s+(?:me\s+)?(?:the\s+)?evidence\b",
+        r"\bgive\s+(?:me\s+)?(?:the\s+)?evidence\b",
+        r"\bextracts?\s+from\s+(?:the\s+)?annual[ -]?report\b",
+        r"\bquote\s+(?:from\s+)?(?:the\s+)?annual[ -]?report\b",
+    ]
+    return any(re.search(pattern, q) for pattern in evidence_patterns)
 
 def question_wants_technology_comparison(question: str) -> bool:
 
@@ -1611,259 +1611,229 @@ def _build_concise_technology_comparison(
     matched_companies: pd.DataFrame,
     kb: TechKnowledgeBase,
     registry: SourceRegistry,
+    question: str = "",
 ) -> str:
-
+    """Build an evidence-grounded comparison even when one company has no profile."""
     company_col = next(
-
         (column for column in ("Company", "Company Name") if column in matched_companies.columns),
-
         None,
-
     )
-
     if company_col is None:
-
         return "A technology comparison could not be prepared because company names are unavailable."
 
-
-
     companies = []
+    seen = set()
+    for raw_name in matched_companies[company_col].dropna().astype(str):
+        name = raw_name.strip()
+        key = compute_company_key(name)
+        if not name or key in seen:
+            continue
+        seen.add(key)
+        profile = kb.get_profile(name) if kb is not None else None
+        companies.append((name, profile))
 
-    for name in matched_companies[company_col].dropna().astype(str):
+    if len(companies) < 2:
+        return "A technology comparison requires at least two matched companies."
 
-        profile = kb.get_profile(name)
+    parameter_order = [
+        "Current Technology Adoption", "Digital Transformation", "AI",
+        "Emerging Technologies", "Automation", "Cybersecurity",
+        "Platforms & Systems", "Cloud Adoption", "Technology Partnerships",
+        "Technology Investments", "Future Technology Roadmaps",
+        "Technology Pain Areas", "Tech Risk", "R&D", "Talent & Skills",
+    ]
 
-        companies.append((name.strip(), profile))
-
-
-
-    columns = ["Technology parameter"] + [name for name, _ in companies]
+    # If the question names a parameter, put it first and return it even if it
+    # would otherwise fall beyond the general comparison row limit.
+    q = str(question or "").lower()
+    parameter_patterns = {
+        "R&D": r"\br\s*(?:&|and)\s*d\b|research(?: and| &) development|\brnd\b",
+        "Technology Investments": r"investment|capex|capital expenditure|technology spend|technology budget",
+        "Current Technology Adoption": r"technology adoption|tech stack|current technolog",
+        "Digital Transformation": r"digital transformation|digitisation|digitization|digitalisation|digitalization",
+        "Emerging Technologies": r"emerging technolog|blockchain|internet of things|\biot\b|5g",
+        "Technology Partnerships": r"technology partnership|technology partner|collaboration|alliance",
+        "Cloud Adoption": r"cloud adoption|cloud computing|cloud migration|\baws\b|\bazure\b",
+        "Automation": r"automation|automated|\brpa\b|robotic process",
+        "Cybersecurity": r"cybersecurity|cyber security|information security",
+        "Future Technology Roadmaps": r"roadmap|future technology|technology plan",
+        "Technology Pain Areas": r"technology pain|technology challenge|technology gap|technology issue",
+        "AI": r"artificial intelligence|generative ai|\bai\b|machine learning",
+        "Tech Risk": r"technology risk|tech risk|cyber risk",
+        "Platforms & Systems": r"platforms? and systems?|core banking|\berp\b|\bsap\b",
+        "Talent & Skills": r"technology talent|technology skills|tech skills",
+    }
+    requested = [p for p in parameter_order if re.search(parameter_patterns.get(p, r"(?!)"), q)]
+    if requested:
+        parameter_order = requested + [p for p in parameter_order if p not in requested]
 
     lines = [
-
         "### Technology comparison",
-
-        "| " + " | ".join(columns) + " |",
-
-        "|" + "|".join("---" for _ in columns) + "|",
-
+        "Evidence is compared only where the supplied annual-report data supports it. Missing evidence is not treated as zero.",
+        "",
+        "| Technology parameter | " + " | ".join(name for name, _ in companies) + " |",
+        "|" + "|".join(["---"] * (len(companies) + 1)) + "|",
     ]
 
-    included_parameters = 0
-
-
-
-    comparison_parameter_order = [
-
-        "Current Technology Adoption",
-
-        "Digital Transformation",
-
-        "AI",
-
-        "Emerging Technologies",
-
-        "Automation",
-
-        "Cybersecurity",
-
-        "Platforms & Systems",
-
-        "Cloud Adoption",
-
-        "Technology Partnerships",
-
-        "Technology Investments",
-
-        "Future Technology Roadmaps",
-
-        "Technology Pain Areas",
-
-        "Tech Risk",
-
-        "R&D",
-
-        "Talent & Skills",
-
-    ]
-
-    for parameter in comparison_parameter_order:
-
+    included = 0
+    # For a parameter-specific question, show that parameter first and then
+    # up to six other available parameters for context. General comparisons get 7.
+    limit = 7
+    for parameter in parameter_order:
         points_by_company = []
-
         for name, profile in companies:
-
             points = profile.points.get(parameter, []) if profile else []
-
-            point = points[0] if points else None
-
-            points_by_company.append((name, profile, point))
-
-
-
-        if not any(point for _, _, point in points_by_company):
-
+            points_by_company.append((name, profile, points))
+        if not any(points for _, _, points in points_by_company):
             continue
 
-
-
         cells = [f"**{parameter}**"]
-
-        for name, profile, point in points_by_company:
-
-            if point is None or profile is None:
-
-                cells.append("No extracted evidence")
-
+        for name, profile, points in points_by_company:
+            if not points or profile is None:
+                cells.append("No extracted evidence available")
                 continue
-
-            source_id = registry.add(profile.key, name, point)
-
-            excerpt = (
-
-                _truncate(point.text, limit=150)
-
-                .replace("\ufffd", "")
-
-                .replace("|", r"\|")
-
-            )
-
-            cells.append(f"{excerpt} [S{source_id}]")
-
-
+            # Rank R&D points so reconstructed table rows and actual values are
+            # shown before table titles, source-page labels, or generic headings.
+            if parameter == "R&D":
+                def rd_relevance(point):
+                    text = point.text.lower()
+                    score = 0
+                    if "r&d" in text or "r and d" in text or "research and development" in text:
+                        score += 5
+                    if "capex" in text or "capital expenditure" in text:
+                        score += 3
+                    if re.search(r"\d+(?:\.\d+)?%", text) or re.search(r"\|\s*-\s*\|", text):
+                        score += 8
+                    if "table content reconstructed" in text or text.startswith("source page:"):
+                        score -= 10
+                    if len(text) < 35:
+                        score -= 3
+                    return score
+                chosen = sorted(points, key=rd_relevance, reverse=True)[:3]
+            else:
+                chosen = points[:1]
+            snippets = []
+            for point in chosen:
+                sid = registry.add(profile.key, name, point)
+                excerpt = _truncate(point.text, limit=230).replace("\ufffd", "").replace("|", r"\|")
+                page_text = ", ".join(str(p) for p in point.pages) if point.pages else "page unavailable"
+                snippets.append(f"{excerpt} (p. {page_text}) [S{sid}]")
+            cells.append("<br>".join(snippets))
 
         lines.append("| " + " | ".join(cells) + " |")
-
-        included_parameters += 1
-
-        if included_parameters >= 7:
-
+        included += 1
+        if included >= limit and not requested:
+            break
+        # For a parameter-specific query, once the requested parameter has
+        # been emitted, don't let unrelated rows displace it.
+        if requested and included >= min(7, len(parameter_order)):
             break
 
-
-
-    if included_parameters == 0:
-        return "No comparable technology evidence is available for these companies."
+    if included == 0:
+        return "No extracted technology evidence was found for these companies in the loaded workbooks."
     return "\n".join(lines)
 
 
-_GLOBAL_TECH_SEARCH_STOPWORDS = set(
-    """
-    a an and are as at be by for from has have how i in is it its of on or
-    that the their this to was were what which who with about tell me give
-    show find list identify explain does do did company companies reported
-    report reports annual implementation implemented implementing use uses
-    using used system systems technology technologies tech adoption adopted
-    mention mentions mentioned stated states available found evidence have
-    healthcare health financial finance services sector customer relationship
-    management overview overviews landscape landscapes parameters parameter
-    profile profiles all every each our data specific
-    """.split()
-)
-
-
 def _global_technology_search_terms(question: str) -> list[str]:
-    """Extract likely named technologies from an unscoped dataset search."""
-    terms = []
-    for token in re.findall(r"[a-z0-9][a-z0-9.+/#-]*", question.lower()):
-        if token in _GLOBAL_TECH_SEARCH_STOPWORDS or len(token) < 2:
-            continue
-        if token not in terms:
-            terms.append(token)
-
-    if "customer relationship management" in question.lower() and "crm" not in terms:
-        terms.append("crm")
-
-    return terms
-
-
-def _technology_term_pattern(term: str) -> re.Pattern:
-    if term == "crm":
-        return re.compile(
-            r"(?<!\w)crm(?!\w)|customer\s+relationship\s+management",
-            flags=re.I,
-        )
-    return re.compile(rf"(?<!\w){re.escape(term)}(?!\w)", flags=re.I)
+    """Keep this compatibility helper, but do not use individual words as searches."""
+    # Deliberately return the complete question as one query unit. Splitting it
+    # into words caused unrelated COMPARE / EXPAND / AI result sections.
+    cleaned = " ".join(str(question or "").split())
+    return [cleaned] if cleaned else []
 
 
 def _search_technology_dataset(
     question: str,
     kb: TechKnowledgeBase,
 ) -> ChatAnswer:
-    """Answer global technology/vendor searches from extracted evidence only."""
-    terms = _global_technology_search_terms(question)
-    if not terms:
+    """Search all companies by the meaning of the complete question, not isolated words."""
+    if kb is None or not kb.profiles:
+        return ChatAnswer(
+            text="No technology profiles are loaded. Check that the evidence_summary and technology_extraction workbooks are present and readable."
+        )
+
+    # A full-question semantic comparison is essential for action-oriented
+    # questions such as 'which companies plan to expand AI'. Parameter labels
+    # are included in each candidate so short labels such as AI remain useful.
+    candidates = []
+    documents = []
+    for profile in kb.profiles.values():
+        for parameter in TECHNOLOGY_PARAMETERS:
+            for point in profile.points.get(parameter, []):
+                candidates.append((profile, point))
+                documents.append(
+                    f"Company: {profile.company}. Technology parameter: {parameter}. "
+                    f"Annual-report statement: {point.text}"
+                )
+
+    if not candidates:
+        return ChatAnswer(text="No technology evidence points are loaded from the current workbooks.")
+
+    try:
+        scores = kb._ranker.scores(str(question or ""), documents)
+        model_loaded = kb._ranker._load_model() is not None
+    except Exception:
+        scores = [0.0] * len(candidates)
+        model_loaded = False
+
+    ranked = sorted(
+        zip(scores, candidates),
+        key=lambda item: item[0],
+        reverse=True,
+    )
+
+    # With embeddings, require a meaningful semantic match. If the embedding
+    # model is unavailable, the ranker uses token overlap; use its positive
+    # scores but never create separate result sections for individual words.
+    best_score = ranked[0][0] if ranked else 0.0
+    threshold = max(0.20, best_score * 0.62) if model_loaded else max(0.015, best_score * 0.45)
+    ranked = [(score, item) for score, item in ranked if score >= threshold and score > 0]
+
+    # De-duplicate repeated points and keep a small, balanced set per company.
+    company_results: dict[str, dict] = {}
+    for score, (profile, point) in ranked:
+        key = profile.key
+        bucket = company_results.setdefault(key, {"profile": profile, "points": [], "seen": set(), "score": score})
+        normalized = " ".join(point.text.lower().split())
+        if normalized in bucket["seen"]:
+            continue
+        if len(bucket["points"]) >= 3:
+            continue
+        bucket["seen"].add(normalized)
+        bucket["points"].append((score, point))
+        bucket["score"] = max(bucket["score"], score)
+
+    results = sorted(company_results.values(), key=lambda x: x["score"], reverse=True)
+    if not results:
         return ChatAnswer(
             text=(
-                "Please name a company or a specific technology/vendor "
-                "(for example, SAP or CRM) so I can check the collected evidence."
+                "I couldn't find annual-report statements that are sufficiently related to the complete question. "
+                "Try naming the technology or company, or check whether the relevant annual-report evidence has been loaded. "
+                "This does not prove that a company does not use or plan the technology."
             )
         )
 
     registry = SourceRegistry()
     lines = [
-        "### Annual-report technology evidence search",
-        (
-            "The results below include only companies whose collected "
-            "annual-report evidence explicitly mentions the requested term. "
-            "No match means the term was not found in the loaded evidence; "
-            "it does not prove a company does not use that technology."
-        ),
+        "### Companies matching the technology question",
+        "Results are ranked against the meaning of your complete question. Each row includes evidence from the company's loaded annual-report summaries; a missing match is not proof that the company does not use or plan the technology.",
+        "",
+        "| Company | Relevant technology evidence |",
+        "|---|---|",
     ]
-    any_matches = False
 
-    for term in terms:
-        pattern = _technology_term_pattern(term)
-        matches = []
-        for profile in kb.profiles.values():
-            points = [
-                point
-                for profile_points in profile.points.values()
-                for point in profile_points
-                if pattern.search(point.text)
-            ]
-            if points:
-                matches.append((profile, points))
-
-        lines.extend(["", f"#### {term.upper()}"])
-        if not matches:
-            lines.append("No matching mention was found in the loaded evidence.")
-            continue
-
-        any_matches = True
-        lines.extend(["| Company | Evidence summary |", "|---|---|"])
-        for profile, points in matches:
-            excerpts = []
-            seen = set()
-            for point in points:
-                normalized = " ".join(point.text.lower().split())
-                if normalized in seen:
-                    continue
-                seen.add(normalized)
-                source_id = registry.add(profile.key, profile.company, point)
-                excerpt = _truncate(point.text, limit=350).replace("|", r"\|")
-                excerpts.append(
-                    f"{excerpt} [S{source_id}]"
-                )
-                if len(excerpts) == 3:
-                    break
-            lines.append(
-                f"| {profile.company} | " + "<br>".join(excerpts) + " |"
-            )
-
-    if not any_matches:
-        lines.append(
-            "\nThis means no explicit mention was found in the loaded "
-            "annual-report evidence, not that the companies do not use it."
-        )
+    for result in results:
+        profile = result["profile"]
+        excerpts = []
+        for score, point in result["points"]:
+            source_id = registry.add(profile.key, profile.company, point)
+            parameter = point.parameter.replace("|", r"\|")
+            excerpt = _truncate(point.text, limit=300).replace("|", r"\|")
+            excerpts.append(f"**{parameter}:** {excerpt} [S{source_id}]")
+        lines.append(f"| {profile.company.replace('|', r'\|')} | " + "<br>".join(excerpts) + " |")
 
     answer, sources = resolve_citations("\n".join(lines), registry, kb)
-    return ChatAnswer(
-        text=answer,
-        tech_sources=sources,
-        technology_used=any_matches,
-    )
+    return ChatAnswer(text=answer, tech_sources=sources, technology_used=True)
 
 
 # ============================================================
@@ -2026,62 +1996,20 @@ def answer_question(
 
 
     if (
-
         include_technology
-
         and question_wants_technology_comparison(question)
-
         and len(matched_companies) > 1
-
     ):
-
-        company_col = next(
-
-            (
-
-                column for column in ("Company", "Company Name")
-
-                if column in matched_companies.columns
-
-            ),
-
-            None,
-
+        # Use a deterministic evidence-backed comparison instead of allowing
+        # the LLM to reject a valid comparison when the leader lacks a profile.
+        # This also ensures a requested parameter such as R&D is not omitted
+        # because it appears late in the default parameter order.
+        raw_answer = _build_concise_technology_comparison(
+            matched_companies,
+            kb,
+            registry,
+            question=question,
         )
-
-        profiles = (
-
-            [
-
-                kb.get_profile(name)
-
-                for name in matched_companies[company_col].dropna().astype(str)
-
-            ]
-
-            if company_col else []
-
-        )
-
-        if (
-
-            len(profiles) > 1
-
-            and all(profile is not None and profile.total_points for profile in profiles)
-
-            and _has_technology_evidence_refusal(raw_answer)
-
-        ):
-
-            raw_answer = _build_concise_technology_comparison(
-
-                matched_companies,
-
-                kb,
-
-                registry,
-
-            )
 
     elif include_technology and question_wants_broad_technology_detail(question):
 

@@ -1,8 +1,3 @@
-
-"""Page 2: Compare a selected company with its sector leader using
-existing comparison tables plus an LLM-generated explanation.
-"""
-
 from pathlib import Path
 import os
 import re
