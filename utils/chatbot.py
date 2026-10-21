@@ -1830,7 +1830,8 @@ def _search_technology_dataset(
             parameter = point.parameter.replace("|", r"\|")
             excerpt = _truncate(point.text, limit=300).replace("|", r"\|")
             excerpts.append(f"**{parameter}:** {excerpt} [S{source_id}]")
-        lines.append(f"| {profile.company.replace('|', r'\|')} | " + "<br>".join(excerpts) + " |")
+        company_name = profile.company.replace("|", "\\|")
+        lines.append(f"| {company_name} | " + "<br>".join(excerpts) + " |")
 
     answer, sources = resolve_citations("\n".join(lines), registry, kb)
     return ChatAnswer(text=answer, tech_sources=sources, technology_used=True)
