@@ -106,65 +106,102 @@ def num(value, decimals=0):
         return "N/A"
 
 
-def pct(value):
-    """Format decimal ratios or percentage values."""
+def pct(value, decimals=2):
+    """Format a source decimal fraction as a percentage for display."""
     try:
         if pd.isna(value) or str(value).strip() == "":
             return "N/A"
+        return f"{float(value) * 100:,.{decimals}f}%"
+    except (ValueError, TypeError):
+        return "N/A"
 
-        number = float(value)
-        return (
-            f"{number * 100:.1f}%"
-            if abs(number) <= 1
-            else f"{number:.1f}%"
+
+def format_market_cap(value):
+    """Display absolute INR market capitalization in ₹ lakh crore."""
+    try:
+        if pd.isna(value) or str(value).strip() == "":
+            return "N/A"
+        amount_in_rupees = float(
+            str(value).strip().replace("₹", "").replace(",", "").replace("INR", "")
         )
+        return f"₹{amount_in_rupees / 1_000_000_000_000:,.2f} lakh crore"
     except (ValueError, TypeError):
         return "N/A"
 
 
-def format_market_cap(value, unit="rupees"):
-    """Format market capitalization as lakh crore, crore, lakh, or rupees."""
+def format_billion(value, decimals=2):
+    """Display an unchanged source value expressed in ₹ billion."""
     try:
         if pd.isna(value) or str(value).strip() == "":
             return "N/A"
-
-        if isinstance(value, str):
-            value = (
-                value.strip()
-                .replace("₹", "")
-                .replace(",", "")
-                .replace("INR", "")
-                .strip()
-            )
-
-        amount = float(value)
-        if amount < 0:
-            return "N/A"
-
-        unit = unit.lower().strip()
-        if unit == "rupees":
-            amount_in_rupees = amount
-        elif unit == "crore":
-            amount_in_rupees = amount * 10_000_000
-        elif unit == "million":
-            amount_in_rupees = amount * 1_000_000
-        else:
-            raise ValueError("Use 'rupees', 'crore', or 'million'.")
-
-        lakh = 100_000
-        crore = 10_000_000
-        lakh_crore = 1_000_000_000_000
-
-        if amount_in_rupees >= lakh_crore:
-            return f"₹{amount_in_rupees / lakh_crore:,.2f} lakh crore"
-        if amount_in_rupees >= crore:
-            return f"₹{amount_in_rupees / crore:,.2f} crore"
-        if amount_in_rupees >= lakh:
-            return f"₹{amount_in_rupees / lakh:,.2f} lakh"
-        return f"₹{amount_in_rupees:,.0f}"
-
+        return f"₹{float(value):,.{decimals}f} billion"
     except (ValueError, TypeError):
         return "N/A"
+
+
+def format_per_share(value, decimals=2):
+    """Display EPS/LTP as rupees per share without scale conversion."""
+    try:
+        if pd.isna(value) or str(value).strip() == "":
+            return "N/A"
+        return f"₹{float(value):,.{decimals}f} per share"
+    except (ValueError, TypeError):
+        return "N/A"
+
+
+def format_ratio(value, decimals=2):
+    """Display a debt-equity ratio as a multiple (x)."""
+    try:
+        if pd.isna(value) or str(value).strip() == "":
+            return "N/A"
+        return f"{float(value):,.{decimals}f}x"
+    except (ValueError, TypeError):
+        return "N/A"
+
+
+def format_metric_value(value, metric_label, decimals=2):
+    """Format a financial value using the selected metric's display unit."""
+    config = FINANCIAL_FILTER_METRICS.get(metric_label, {})
+    unit = config.get("unit_label", "")
+
+    if metric_label == "Market Capitalization":
+        return format_market_cap(value)
+    if unit == "₹ billion":
+        return format_billion(value, decimals)
+    if unit == "₹ per share":
+        return format_per_share(value, decimals)
+    if unit == "%":
+        return pct(value, decimals)
+    if unit == "x":
+        return format_ratio(value, decimals)
+    return num(value, decimals)
+
+
+def financial_unit_help(metric_label):
+    """Return unit-specific input guidance without changing the filter UI."""
+    config = FINANCIAL_FILTER_METRICS[metric_label]
+    unit = config["unit_label"]
+
+    if metric_label == "Market Capitalization":
+        return (
+            "Enter values in ₹ lakh crore. Example: 3.36 means ₹3.36 lakh crore. "
+            "You may also enter a value such as 336000 crore."
+        )
+    if unit == "%":
+        return (
+            "Enter percentage points, not decimal fractions. Example: enter 12.18 "
+            "for a source value of 0.1218 (12.18%)."
+        )
+    if unit == "₹ billion":
+        return (
+            "Enter the value in ₹ billion. The workbook values are already in "
+            "billions; no crore or billion conversion is applied to the source data."
+        )
+    if unit == "₹ per share":
+        return "Enter rupees per share. No crore or billion conversion is applied."
+    if unit == "x":
+        return "Enter the ratio as a multiple. Example: 1.25 means 1.25x."
+    return f"Enter values in {unit}."
 
 
 # ---------------------------------------------------------
@@ -199,12 +236,14 @@ FINANCIAL_FILTER_METRICS = {
     },
     "EBITDA": {
         "column": "EBITDA (Billion)",
+        "column_aliases": ["EBITDA ", "EBITDA"],
         "unit_label": "₹ billion",
         "to_source_factor": 1.0,
         "default_threshold": 100.0,
     },
     "Net Profit (PAT)": {
         "column": "PAT (Billion)",
+        "column_aliases": ["PAT ", "PAT"],
         "unit_label": "₹ billion",
         "to_source_factor": 1.0,
         "default_threshold": 10.0,
@@ -271,11 +310,23 @@ FINANCIAL_FILTER_METRICS = {
     },
     "Debt-to-Equity Ratio": {
         "column": "Debt Equity Ratio",
-        "unit_label": "ratio",
+        "unit_label": "x",
         "to_source_factor": 1.0,
         "default_threshold": 1.0,
     },
 }
+
+
+def resolve_metric_column(dataframe, config):
+    """Find the configured column or one of its workbook-header aliases."""
+    candidates = [config["column"]] + config.get("column_aliases", [])
+    for candidate in candidates:
+        if candidate in dataframe.columns:
+            return candidate
+
+    # Last-resort whitespace-insensitive matching handles headers such as 'PAT '.
+    normalized = {str(column).strip().casefold(): column for column in dataframe.columns}
+    return normalized.get(str(config["column"]).strip().casefold())
 
 
 def parse_financial_value(value, metric_label, config):
@@ -293,9 +344,14 @@ def parse_financial_value(value, metric_label, config):
         .replace("inr", "")
         .replace("rs.", "")
         .replace("rs", "")
-        .replace("%", "")
         .strip()
     )
+
+    if config["unit_label"] == "x":
+        text = re.sub(r"\\s*x$", "", text).strip()
+    elif config["unit_label"] == "%":
+        text = text.replace("%", "").strip()
+
 
     match = re.fullmatch(
         r"([+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*"
@@ -412,7 +468,7 @@ def financial_input_step(metric_label, current_value):
 
     if unit == "%":
         return 1.0
-    if unit == "ratio":
+    if unit == "x":
         return 0.1
     if unit == "₹ per share":
         return 10.0
@@ -446,7 +502,7 @@ def adjust_financial_value(key, direction, metric):
 
 
 def financial_results_table(company_df: pd.DataFrame) -> pd.DataFrame:
-    """Create a readable table without changing the numeric source dataframe."""
+    """Create a readable display copy; preserve numeric values in the source dataframe."""
     columns = [
         "Company",
         "Sector",
@@ -462,13 +518,11 @@ def financial_results_table(company_df: pd.DataFrame) -> pd.DataFrame:
     result = company_df[visible].copy()
 
     if "Market Cap" in result.columns:
-        result["Market Cap"] = result["Market Cap"].map(
-            lambda value: format_market_cap(value, unit="rupees")
-        )
+        result["Market Cap"] = result["Market Cap"].map(format_market_cap)
 
     for column in ["Revenue (Billion)", "PAT (Billion)"]:
         if column in result.columns:
-            result[column] = result[column].map(lambda value: num(value, 2))
+            result[column] = result[column].map(format_billion)
 
     for column in ["Revenue Growth", "EBITDA Margin"]:
         if column in result.columns:
@@ -590,16 +644,16 @@ sector_companies = get_sector_companies(financial, sector)
 
 st.subheader("Find Companies by Financial Value")
 st.caption(
-    "Enter a minimum and maximum value. Supported examples include "
-    "'5k crore', '5000 crore', '5 lakh crore', '10 lakh crore', "
-    "'100 billion', and plain numbers. Use + and − to adjust values."
+    "Enter a minimum and maximum value using the unit shown for the selected "
+    "metric. The unit updates automatically when you change the financial metric. "
+    "Use + and − to adjust values."
 )
 
 with st.container(border=True):
     available_metrics = {
         label: config
         for label, config in FINANCIAL_FILTER_METRICS.items()
-        if config["column"] in sector_companies.columns
+        if resolve_metric_column(sector_companies, config) is not None
     }
 
     if not available_metrics:
@@ -615,7 +669,7 @@ with st.container(border=True):
             key="financial_filter_metric",
         )
         config = available_metrics[metric_label]
-        source_column = config["column"]
+        source_column = resolve_metric_column(sector_companies, config)
         unit_label = config["unit_label"]
         factor = float(config["to_source_factor"])
 
@@ -679,10 +733,7 @@ with st.container(border=True):
                         f"Minimum ({unit_label})",
                         key=lower_key,
                         placeholder="e.g. 5k crore",
-                        help=(
-                            "Currency examples: 5k crore, 5000 crore, "
-                            "5 lakh crore, 100 billion."
-                        ),
+                        help=financial_unit_help(metric_label),
                     )
 
                 with plus_col:
@@ -717,10 +768,7 @@ with st.container(border=True):
                         f"Maximum ({unit_label})",
                         key=upper_key,
                         placeholder="e.g. 10 lakh crore",
-                        help=(
-                            "Currency examples: 10k crore, 10 lakh crore, "
-                            "or a plain number in the displayed units."
-                        ),
+                        help=financial_unit_help(metric_label),
                     )
 
                 with plus_col:
@@ -733,41 +781,18 @@ with st.container(border=True):
                         use_container_width=True,
                     )
 
-            st.caption(
-                "Plain numbers use the displayed units: ₹ lakh crore for market "
-                "capitalization, ₹ billion for revenue/EBITDA/PAT/debt/cash, "
-                "percentage points for percentage metrics, and the named units "
-                "for EPS, LTP, and debt-to-equity."
+            st.caption(financial_unit_help(metric_label))
+
+            apply_filter = st.button(
+                "Apply Filter",
+                key=f"apply_financial_filter_{metric_label}",
+                type="primary",
+                use_container_width=True,
             )
-
-            apply_col, reset_col = st.columns(2)
-
-            with apply_col:
-                apply_filter = st.button(
-                    "Apply Filter",
-                    key=f"apply_financial_filter_{metric_label}",
-                    type="primary",
-                    use_container_width=True,
-                )
-
-            with reset_col:
-                reset_filter = st.button(
-                    "Reset to Sector Range",
-                    key=f"reset_financial_filter_{metric_label}",
-                    use_container_width=True,
-                )
 
             filter_state_key = f"applied_financial_filter_{metric_label}"
 
-            if reset_filter:
-                st.session_state[lower_key] = f"{data_min:.8g}"
-                st.session_state[upper_key] = f"{data_max:.8g}"
-                st.session_state[filter_state_key] = {
-                    "lower": data_min,
-                    "upper": data_max,
-                }
-
-            elif apply_filter:
+            if apply_filter:
                 try:
                     lower_value = parse_financial_value(
                         st.session_state.get(lower_key, ""),
@@ -892,7 +917,7 @@ if row is not None:
 
     metric_cols[0].metric(
         "Market Cap",
-        format_market_cap(row.get("Market Cap"), unit="rupees"),
+        format_market_cap(row.get("Market Cap")),
     )
     metric_cols[1].metric(
         "Revenue (Billion)",
@@ -936,8 +961,36 @@ if row is not None:
     ]
 
     with st.expander("View All Available Financial Data", expanded=True):
+        detail_display = pd.DataFrame([row[fin_cols]]).copy()
+
+        if "Market Cap" in detail_display.columns:
+            detail_display["Market Cap"] = detail_display["Market Cap"].map(
+                format_market_cap
+            )
+
+        for column in [
+            "Revenue (Billion)", "Net Revenue (Billion)", "EBITDA (Billion)",
+            "EBITDA ", "EBITDA", "PAT (Billion)", "PAT ", "PAT",
+            "PAT (FY-26)", "Debt (Billion)", "Cash (Billion)"
+        ]:
+            if column in detail_display.columns:
+                detail_display[column] = detail_display[column].map(format_billion)
+
+        for column in ["EPS", "EPS (FY-26)", "LTP"]:
+            if column in detail_display.columns:
+                detail_display[column] = detail_display[column].map(format_per_share)
+
+        for column in ["Revenue Growth", "EBITDA Margin", "ROE", "ROCE"]:
+            if column in detail_display.columns:
+                detail_display[column] = detail_display[column].map(pct)
+
+        if "Debt Equity Ratio" in detail_display.columns:
+            detail_display["Debt Equity Ratio"] = detail_display[
+                "Debt Equity Ratio"
+            ].map(format_ratio)
+
         st.dataframe(
-            pd.DataFrame([row[fin_cols]]),
+            detail_display,
             use_container_width=True,
             hide_index=True,
         )
