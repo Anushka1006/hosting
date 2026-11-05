@@ -25,6 +25,7 @@ from utils.tech_knowledge import build_knowledge_base
 # Everything lives under <project_root>/data/:
 #   data/company_master.csv           financials (one row per company)
 #   data/news_analysis.xlsx           news
+#   data/tech_matrix*.xlsx            technology summaries and page evidence
 #   data/evidence_summary.xlsx        technology facts, batch 1 (Financial Services)
 #   data/technology_extraction1.xlsx  page-level citations for batch 1
 #   data/evidence_summary2.xlsx       technology facts, batch 2 (Healthcare)
@@ -40,7 +41,7 @@ COMPANY_MASTER_FILE = DATA_DIR / "company_master.csv"
 NEWS_FILE = DATA_DIR / "news_analysis.xlsx"
 
 # The technology workbooks are discovered automatically in data/
-# (evidence_summary*.xlsx paired with technology_extraction*.xlsx).
+# (tech_matrix*.xlsx, or legacy evidence_summary*/technology_extraction* pairs).
 TECH_DIR = DATA_DIR
 
 
@@ -138,7 +139,8 @@ def load_tech_knowledge():
     if not kb.profiles:
         raise FileNotFoundError(
             "No technology evidence found.\n\n"
-            f"Expected evidence_summary*.xlsx and technology_extraction*.xlsx in:\n{TECH_DIR}"
+            f"Expected tech_matrix*.xlsx or evidence_summary*.xlsx with "
+            f"technology_extraction*.xlsx in:\n{TECH_DIR}"
         )
 
     return kb

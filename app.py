@@ -495,69 +495,20 @@ def company_news(df, company_name):
 # SUMMARY-ONLY TECHNOLOGY DATA
 # ---------------------------------------------------------
 
-@st.cache_data(show_spinner="Loading summarized technology profiles...")
-def load_summary_technology_points(data_dir: str) -> dict:
-    """Load summary claims, not raw page-level extraction evidence."""
-    data_path = Path(data_dir)
+def load_summary_technology_points(knowledge_base) -> dict:
+    """Build dashboard summaries from the shared technology knowledge base."""
     result = {}
 
-    for workbook in sorted(data_path.glob("evidence_summary*.xlsx")):
-        try:
-            points_df = pd.read_excel(
-                workbook,
-                sheet_name="Summary Points",
-                dtype=str,
-            ).fillna("")
-        except Exception:
-            continue
-
-        required = {"Company", "Parameter", "Point"}
-        if not required.issubset(points_df.columns):
-            continue
-
-        for _, record in points_df.iterrows():
-            company = str(record.get("Company", "")).strip()
-            parameter = str(record.get("Parameter", "")).strip()
-            point_text = str(record.get("Point", "")).strip()
-
-            if (
-                not company
-                or parameter not in TECHNOLOGY_PARAMETERS
-                or not point_text
-            ):
-                continue
-
-            point_text = re.sub(
-                r"^\s*\d+\s*[.)]\s*",
-                "",
-                point_text,
-            ).strip()
-
-            if not point_text or point_text.lower().startswith(
-                ("not available in collected data", "no evidence available")
-            ):
-                continue
-
-            key = compute_company_key(company)
-            company_entry = result.setdefault(
-                key,
-                {"company": company, "parameters": {}},
-            )
-            parameter_points = company_entry["parameters"].setdefault(
-                parameter,
-                [],
-            )
-
-            normalized = re.sub(r"\s+", " ", point_text).casefold()
-            if not any(
-                re.sub(r"\s+", " ", existing["text"]).casefold() == normalized
-                for existing in parameter_points
-            ):
-                pages = str(record.get("Source Pages", "")).strip()
-                page_numbers = re.findall(r"\d+", pages)
-                parameter_points.append(
-                    {"text": point_text, "pages": page_numbers}
-                )
+    for key, profile in knowledge_base.profiles.items():
+        parameters = {}
+        for parameter, points in profile.points.items():
+            if points:
+                parameters[parameter] = [
+                    {"text": point.text, "pages": [str(page) for page in point.pages]}
+                    for point in points
+                ]
+        if parameters:
+            result[key] = {"company": profile.company, "parameters": parameters}
 
     return result
 
@@ -571,9 +522,7 @@ try:
     news = load_news()
     tech_summary, tech_detail = load_technology()
     kb = load_tech_knowledge()
-    summary_technology = load_summary_technology_points(
-        str(BASE_DIR / "data")
-    )
+    summary_technology = load_summary_technology_points(kb)
 except Exception as error:
     st.error(
         "Unable to load project data. Check the required Excel/CSV files in data/."
@@ -1210,7 +1159,8 @@ if not summary_profile or not summary_profile.get("parameters"):
     st.info(
         "No summarized technology source points are available for this company. "
         "Raw extracted evidence is intentionally not displayed here. Check the "
-        "Summary Points sheet in data/evidence_summary*.xlsx."
+        "'Tech Matrix' sheet in data/tech_matrix*.xlsx or the Summary Points "
+        "sheet in data/evidence_summary*.xlsx."
     )
 else:
     cache = _load_summary_cache()

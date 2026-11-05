@@ -208,5 +208,133 @@
       }
     },
     "source_fingerprint": "fc77fd7c13d65267b7e6231e543ebfb1a126554d67466325d10da8ea05fafa99"
+  },
+  "ultratechcement": {
+    "company": "UltraTech Cement Ltd.",
+    "model": "openai/gpt-oss-20b",
+    "parameters": {
+      "Current Technology Adoption": {
+        "summary": "Scaled AI, machine learning, IoT and advanced analytics across factories to enhance process stability, energy efficiency and asset reliability, including predictive‑maintenance platforms that use IoT sensors and AI models to reduce unplanned downtime. Advanced process control systems and AI‑driven optimisation were deployed on kilns and mills, supported by connected‑worker, robotics and computer‑vision technologies. Cloud‑based data services and the SAP S/4HANA RISE programme were initiated to improve scalability and system resilience.",
+        "pages": [
+          "117",
+          "119",
+          "120",
+          "129"
+        ]
+      },
+      "Digital Transformation": {
+        "summary": "SAP S/4HANA upgrade and the RISE programme transition core ERP to cloud, while Speed 2.0 optimises order allocation. RMC Control Tower provides real‑time scheduling and mobile collaboration across plants. Invoice‑to‑Payment revamp streamlines high‑volume transactions, and UltraBuddy, a WhatsApp‑based GenAI assistant, offers 24×7 dealer support.",
+        "pages": [
+          "119",
+          "129"
+        ]
+      },
+      "R&D": {
+        "summary": "In‑house R&D FY 2025‑26: ₹4.07 cr capital, ₹15.38 cr recurring, total ₹19.45 cr. Scientific research contribution ₹7.50 cr, bringing total FY 2025‑26 R&D to ₹26.95 cr (0.03 % of turnover). FY 2024‑25 R&D was ₹29.14 cr (0.04 % of turnover). R&D priorities focus on environmental footprint, operational efficiency and next‑generation materials.",
+        "pages": [
+          "63",
+          "84",
+          "128",
+          "142"
+        ]
+      },
+      "Emerging Technologies": {
+        "summary": "AI‑driven predictive maintenance combines IoT sensor data with machine‑learning models to forecast failures. Thousands of IoT sensors capture real‑time operational signals. Robotics, computer‑vision, drones and advanced sensing are deployed to automate inspection, enhance safety and support Industry 4.0 initiatives.",
+        "pages": [
+          "62",
+          "86",
+          "119",
+          "120",
+          "184"
+        ]
+      },
+      "Technology Partnerships": {
+        "summary": "SAP ERP deployment consolidates material codes and audit readiness. Collaboration with GCCA Innovandi network advances low‑carbon cement and operational efficiency. Third‑party agencies strengthen ESG assessment and digital procurement analytics. VendX digital procurement platform automates sourcing workflows.",
+        "pages": [
+          "65",
+          "88",
+          "128"
+        ]
+      },
+      "Technology Investments": {
+        "summary": "Intangible assets under development rose to Rs 28.41 cr as of 1 Apr 2024, with additions of Rs 61.62 cr in FY 2024‑25, reaching Rs 45.92 cr by 31 Mar 2025 and Rs 466.40 cr by 31 Mar 2026. Rs 211.54 cr added to capital work‑in‑progress, potentially covering technology acquisitions.",
+        "pages": [
+          "119",
+          "273"
+        ]
+      },
+      "Cloud Adoption": {
+        "summary": "SAP S/4HANA RISE migrates core ERP to cloud, improving scalability. A robust Data Warehouse and Data Lake underpin AI, ML, GenAI, IoT and analytics. DSPM services and CrowdStrike Spotlight enhance cloud security. No monetary cloud spend disclosed.",
+        "pages": [
+          "118",
+          "119"
+        ]
+      },
+      "Automation": {
+        "summary": "Robotics, drones and sensor‑based technologies boost resilience, safety and sustainability. Online workflow for credit‑exception approvals reduces paperwork. AI‑driven predictive maintenance and advanced process control improve uptime and process consistency.",
+        "pages": [
+          "72",
+          "88",
+          "119",
+          "120"
+        ]
+      },
+      "Cybersecurity": {
+        "summary": "Framework includes real‑time intrusion alerts, decoys, backups and continuous monitoring. OT security reinforced via patch‑management, intrusion‑detection and antivirus. IT‑OT micro‑segmentation completed across additional plants; secure remote access standardised for 23 units. Steering and Board committees oversee cyber‑risk management.",
+        "pages": [
+          "118"
+        ]
+      },
+      "Future Technology Roadmaps": {
+        "summary": "Near‑term roadmap scales Agentic AI, robotics and advanced analytics globally. SAP S/4HANA RISE continues cloud transition. RMC Control Tower pilots dynamic scheduling and real‑time visibility. DataPulse, an in‑house GenAI BI platform, delivers real‑time insights. AI and automation scaling planned across all functions.",
+        "pages": [
+          "119",
+          "120"
+        ]
+      },
+      "Technology Pain Areas": {
+        "summary": "Skilled manpower shortage and limited leadership talent destabilise operations. Sub‑optimal AI adoption due to capability gaps and lack of responsible‑AI governance. Rapid cyber‑threat evolution and generative‑AI data exposure risk breaches. Integration between IT and OT requires strengthening, leading to micro‑segmentation and remote‑access standardisation.",
+        "pages": [
+          "88",
+          "119",
+          "132",
+          "133"
+        ]
+      },
+      "AI": {
+        "summary": "Scaled AI and ML models for predictive maintenance using IoT data improve uptime. AI‑driven optimisation on kilns and mills boosts efficiency and fuel utilisation. Computer‑vision and robotics enhance inspection and safety. Proprietary GenAI engine expands predictive‑maintenance capabilities. Continued investment in in‑house and OEM platforms supports AI‑enabled asset monitoring.",
+        "pages": [
+          "116",
+          "119"
+        ]
+      },
+      "Tech Risk": {
+        "summary": "Cyber‑risk strategy focuses on proactive prevention, early detection and rapid response with advanced vulnerability tools and auto‑remediation. CrowdStrike Spotlight enhances endpoint visibility. DSPM services continuously identify cloud risks. Application‑level microsegmentation limits lateral threat movement. Controls restrict public GenAI platform use to mitigate data exposure.",
+        "pages": [
+          "65",
+          "118"
+        ]
+      },
+      "Platforms & Systems": {
+        "summary": "MineOptima360 integrates mining value chain, delivering measurable productivity gains and scaling across units. Centralised Mines Analytics Dashboard tracks key operational and cost indicators. SAP S/4HANA RISE transitions core ERP to cloud. RMC Control Tower enables dynamic scheduling and real‑time visibility. Data Warehouse and Data Lake underpin AI, ML, GenAI, IoT and analytics.",
+        "pages": [
+          "72",
+          "82",
+          "88",
+          "119",
+          "120"
+        ]
+      },
+      "Talent & Skills": {
+        "summary": "Delivered 9,503,388 training hours, averaging Rs 4,840 per employee. Offered 11,158 distinct programmes covering leadership, technical, safety and digital tools. Upgraded skills for over 17,000 employees. Learning ecosystem structured around Fit to Work, Fit to Perform and Fit to Grow pillars.",
+        "pages": [
+          "30",
+          "90",
+          "95",
+          "130"
+        ]
+      }
+    },
+    "source_fingerprint": "d7bb935d13ea10e512869948892bec67c09486696cf27476d57d761e39d2e14f"
   }
 }

@@ -50,7 +50,7 @@ _STOPWORDS = set(
 
 @dataclass
 class Block:
-    """One page-level evidence block from a technology_extraction workbook."""
+    """One page-level evidence block from a technology workbook."""
     pdf: str
     page: int
     section: str
@@ -363,11 +363,17 @@ class TechKnowledgeBase:
     def summary_df(self) -> pd.DataFrame:
         rows = []
         for profile in self.profiles.values():
+            built_from = (
+                "tech_matrix"
+                if profile.summary_file.lower().startswith("tech_matrix")
+                else "extraction (no summary row)" if profile.derived
+                else "evidence_summary"
+            )
             row = {
                 "Company": profile.company,
                 "Company_Key": profile.key,
                 "Evidence_Points": profile.total_points,
-                "Built_From": "extraction (no summary row)" if profile.derived else "evidence_summary",
+                "Built_From": built_from,
             }
             for parameter in TECHNOLOGY_PARAMETERS:
                 points = profile.points.get(parameter, [])
@@ -416,6 +422,28 @@ def _excerpt(block_text: str, point_text: str, width: int = 380) -> str:
     return snippet
 
 
+def _matrix_points(value) -> list[tuple[str, list[int]]]:
+    """Split a Tech Matrix parameter cell into claims and cited pages."""
+    text = _clean(value)
+    if not text or text.lower().startswith(NOT_AVAILABLE_MARKERS):
+        return []
+
+    chunks = re.split(r"(?m)^\s*•\s*", text)
+    if len(chunks) == 1:
+        chunks = [text]
+
+    points = []
+    for chunk in chunks:
+        point_text = _collapse(_NUMBERING.sub("", chunk))
+        if not point_text or point_text.lower().startswith(NOT_AVAILABLE_MARKERS):
+            continue
+        pages = sorted(
+            {int(page) for page in re.findall(r"\bp\.\s*(\d+)", point_text, flags=re.I)}
+        )
+        points.append((point_text, pages))
+    return points
+
+
 # ============================================================
 # BUILD KNOWLEDGE BASE
 # ============================================================
@@ -424,8 +452,12 @@ def build_knowledge_base(data_dir) -> TechKnowledgeBase:
     kb = TechKnowledgeBase()
     data_dir = Path(data_dir)
     pairs = discover_file_pairs(data_dir)
-    if not pairs:
-        kb.warnings.append("No evidence_summary*.xlsx files found in the data/ folder.")
+    matrix_files = sorted(data_dir.glob("tech_matrix*.xlsx"))
+    if not pairs and not matrix_files:
+        kb.warnings.append(
+            "No technology workbooks found. Expected evidence_summary*.xlsx "
+            "or tech_matrix*.xlsx files in the data/ folder."
+        )
         return kb
 
     for summary_path, extraction_path in pairs:
@@ -568,5 +600,113 @@ def build_knowledge_base(data_dir) -> TechKnowledgeBase:
             elif key not in kb.profiles:
                 kb.profiles[key] = profile
                 kb.warnings.append(f"{name}: no technology evidence in the workbooks.")
+
+    for matrix_path in matrix_files:
+        kb.files_loaded.append(matrix_path.name)
+        try:
+            matrix_df = pd.read_excel(
+                matrix_path, sheet_name="Tech Matrix", dtype=str
+            ).fillna("")
+        except Exception as exc:
+            kb.warnings.append(
+                f"Could not read the 'Tech Matrix' sheet from {matrix_path.name}: {exc}"
+            )
+            continue
+
+        if "Company" not in matrix_df.columns:
+            kb.warnings.append(
+                f"{matrix_path.name}: 'Tech Matrix' is missing the Company column."
+            )
+            continue
+
+        pdf_by_company = {}
+        for _, row in matrix_df.iterrows():
+            company = _clean(row.get("Company", ""))
+            if not company:
+                continue
+            key = compute_company_key(company)
+            pdf_file = _clean(row.get("PDF File", ""))
+            if not pdf_file and re.search(r"\bltd\.?$", company, flags=re.I):
+                pdf_file = re.sub(
+                    r"\bltd\.?$", "Limited.pdf", company, flags=re.I
+                ).strip()
+            pdf_by_company[key] = pdf_file
+            profile = kb.profiles.get(key)
+            if profile is None:
+                profile = TechProfile(
+                    key=key,
+                    company=company,
+                    summary_file=matrix_path.name,
+                    extraction_file=matrix_path.name,
+                )
+                kb.profiles[key] = profile
+
+            for parameter in TECHNOLOGY_PARAMETERS:
+                if parameter not in matrix_df.columns:
+                    continue
+                for text, pages in _matrix_points(row.get(parameter, "")):
+                    points = profile.points.setdefault(parameter, [])
+                    normalized = _collapse(text).casefold()
+                    existing = next(
+                        (
+                            point for point in points
+                            if _collapse(point.text).casefold() == normalized
+                        ),
+                        None,
+                    )
+                    if existing is None:
+                        points.append(Point(parameter=parameter, text=text, pages=pages))
+                    else:
+                        existing.pages = sorted(set(existing.pages + pages))
+
+        try:
+            evidence_df = pd.read_excel(
+                matrix_path, sheet_name="Evidence", dtype=str
+            ).fillna("")
+        except Exception as exc:
+            kb.warnings.append(
+                f"Could not read the 'Evidence' sheet from {matrix_path.name}: {exc}"
+            )
+            continue
+
+        required_evidence_columns = {"Company", "Parameter", "Page"}
+        missing_columns = required_evidence_columns - set(evidence_df.columns)
+        if missing_columns:
+            kb.warnings.append(
+                f"{matrix_path.name}: 'Evidence' is missing columns "
+                f"{sorted(missing_columns)}."
+            )
+            continue
+
+        excerpt_column = "Excerpt (first 300 chars)"
+        for _, row in evidence_df.iterrows():
+            company = _clean(row.get("Company", ""))
+            parameter = _clean(row.get("Parameter", ""))
+            page_value = _clean(row.get("Page", ""))
+            if not company or parameter not in TECHNOLOGY_PARAMETERS:
+                continue
+            try:
+                page = int(float(page_value))
+            except (TypeError, ValueError):
+                continue
+
+            key = compute_company_key(company)
+            block = Block(
+                pdf=pdf_by_company.get(key, ""),
+                page=page,
+                section=_clean(row.get("Section", "")),
+                score=None,
+                text=_clean(row.get(excerpt_column, "")),
+                parameter=parameter,
+                extraction_file=matrix_path.name,
+            )
+            bucket = kb.evidence.setdefault(key, {}).setdefault(page, [])
+            if not any(
+                existing.parameter == block.parameter
+                and existing.text == block.text
+                and existing.pdf == block.pdf
+                for existing in bucket
+            ):
+                bucket.append(block)
 
     return kb
