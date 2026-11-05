@@ -5,14 +5,14 @@ Three-page Streamlit application for company financials, annual-report technolog
 ## Pages
 1. **Company Intelligence** (`app.py`) — sector leader overview at the top, then choose any company in the selected sector to see that company's financial data, technology evidence, and news. The old sector comparison section has been removed from this page.
 2. **Sector Comparison** (`pages/1_Comparison.py`) — choose a sector and a company; compare its 15 technology parameters and available financial parameters against the sector leader. CSV download buttons are provided for both tables.
-3. **AI Company Assistant** (`pages/2_Chatbot.py`) — the existing assistant page, retained with navigation updated.
+3. **AI Company Assistant** (`pages/2_Chatbot.py`) — ask about company financials, technology, news, or comparisons. Technology/vendor searches without a named company return a concise, AI-written list of matching companies and relevant context.
 
 ## Data sources (authoritative local files)
 - Financial data: `data/company_master.csv`
 - Technology evidence: `data/tech_matrix*.xlsx` workbooks with `Tech Matrix` and `Evidence` sheets. The legacy `evidence_summary*.xlsx` plus `technology_extraction*.xlsx` format is also supported.
 - News: `data/news_analysis.xlsx`
 
-The dashboard does not fabricate missing values. Missing financial values are shown as unavailable, and missing technology evidence is explicitly labelled. For technology/vendor questions without a named company (for example, "Which companies mention SAP?"), the assistant searches the loaded annual-report evidence directly and returns only explicit matches with citations. A missing match means the term was not found in the loaded evidence; it does not prove that a company does not use the technology. GPT/OSS may be used by the existing assistant to summarize company-specific supplied context; verify important claims against the workbook/source page.
+The dashboard does not fabricate missing values. Missing financial values are shown as unavailable, and missing technology evidence is explicitly labelled. For technology/vendor questions without a named company (for example, "Which companies mention SAP or CRM?"), the assistant uses the Groq LLM to summarize a concise list of companies whose technology evidence explicitly matches the requested terms. Chat answers do not display citations, source panels, page numbers, or source filenames. A missing match means the term was not found in the available evidence; it does not prove that a company does not use the technology.
 
 ## Setup (Windows PowerShell)
 1. Install Python 3.10+.

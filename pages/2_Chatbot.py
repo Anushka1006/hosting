@@ -47,6 +47,12 @@ from utils.chatbot import (
     answer_question,
     get_api_key,
     get_model,
+    show_sources,
+)
+from utils.global_search import (
+    answer_global_question,
+    kb_only_company_rows,
+    vendor_mention_only,
 )
 
 
@@ -1204,7 +1210,7 @@ for message in st.session_state.messages:
                 content
             )
 
-            if source_companies or message.get("tech_sources"):
+            if show_sources() and (source_companies or message.get("tech_sources")):
 
                 display_sources(
                     source_companies,
@@ -1255,6 +1261,18 @@ if question:
             question
         )
     )
+
+    # Companies that have technology evidence but are not in
+    # company_master.csv (e.g. Infosys) - detect them by name too, and
+    # combine with any companies found in the master file.
+    _kb_only_rows = kb_only_company_rows(question, tech_kb, company_df)
+    if not _kb_only_rows.empty:
+        if explicit_companies is None or explicit_companies.empty:
+            explicit_companies = _kb_only_rows
+        else:
+            explicit_companies = pd.concat(
+                [explicit_companies, _kb_only_rows]
+            ).drop_duplicates(subset=["Company"])
 
     # ========================================================
     # DETECT SECTORS AND RESOLVE THEIR LEADERS
@@ -1458,6 +1476,38 @@ if question:
 
     with st.chat_message("assistant"):
 
+        # No company named -> vendor/technology search across all companies,
+        # off-topic reply, or a "name a company" message. Returns None when
+        # the normal company / sector-leader flow should answer instead.
+        global_result = None
+        _no_company = (
+            explicit_companies is None
+            or explicit_companies.empty
+            # "compare SAP and Oracle": Oracle here is the vendor, not the
+            # listed company "Oracle Financial Services Software".
+            or vendor_mention_only(
+                question,
+                explicit_companies,
+                lambda text: detect_companies_in_text(company_df, text),
+            )
+        )
+        if _no_company:
+            try:
+                with st.spinner("Searching..."):
+                    global_result = answer_global_question(
+                        question=question,
+                        company_df=company_df,
+                        kb=tech_kb,
+                        sector_names=detected_sectors,
+                    )
+            except Exception:
+                global_result = None
+
+        if global_result is not None:
+            # a global answer is not about the sector leaders picked up above
+            detected_names = []
+            source_companies = []
+
         if detected_names:
 
             st.caption(
@@ -1467,29 +1517,22 @@ if question:
                 )
             )
 
-        else:
-
-            st.warning(
-                "No specific company was detected. "
-                "I can search collected annual-report evidence for a "
-                "technology/vendor; for a company-specific answer, mention "
-                "a company name, NSE symbol, or sector "
-                "(e.g. 'Healthcare sector leader')."
-            )
 
         tech_sources = []
         sources_are_citations = True
 
         try:
 
-            result = answer_question(
-                question=question,
-                company_df=company_df,
-                news_df=news_df,
-                kb=tech_kb,
-                matched_companies=matched_companies,
-                history=history,
-            )
+            result = global_result
+            if result is None:
+                result = answer_question(
+                    question=question,
+                    company_df=company_df,
+                    news_df=news_df,
+                    kb=tech_kb,
+                    matched_companies=matched_companies,
+                    history=history,
+                )
 
             answer = result.text
             tech_sources = result.tech_sources
@@ -1520,7 +1563,7 @@ if question:
             answer
         )
 
-        if source_companies or tech_sources:
+        if show_sources() and (source_companies or tech_sources):
 
             display_sources(
                 source_companies,

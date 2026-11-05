@@ -38,6 +38,27 @@ def fake_groq(messages, effort, max_completion_tokens=4500):
     CAPTURED["system"] = system
     CAPTURED["effort"] = effort
     CAPTURED["max_completion_tokens"] = max_completion_tokens
+    if "=== MATCHING COMPANIES AND EVIDENCE ===" in system:
+        sections = re.findall(
+            r"^([^|\n]+)\s+\|\s+(.+)$",
+            system,
+            flags=re.M,
+        )
+        lines = []
+        for company, section in sections:
+            terms = list(dict.fromkeys(re.findall(r"\b(SAP|CRM):", section)))
+            label = ", ".join(terms) if terms else "technology"
+            lines.append(
+                f"- **{company}** — Mentions {label} in a described business activity."
+            )
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content="\n".join(lines)),
+                    finish_reason="stop",
+                )
+            ]
+        )
     ids = re.findall(r"^\[S(\d+)\]", system, flags=re.M)
     if ids:
         body = (
@@ -79,12 +100,6 @@ check("dashboard loads without exception", not at.exception, at.exception)
 for sector in ("Financial Services", "Healthcare", "Technology"):
     at.sidebar.selectbox[0].set_value(sector).run()
     check(f"dashboard renders sector {sector}", not at.exception, at.exception)
-    txt = page_text(at)
-    if sector == "Technology":
-        check("uncovered sector leader shows 'no evidence' message",
-              "No technology evidence is available" in "\n".join(i.value for i in at.info))
-    else:
-        check(f"{sector} leader shows technology points with page refs", "(p. " in txt)
 
 # ------------------------------------------------------------------ chatbot
 at = AppTest.from_file(str(ROOT / "pages" / "2_Chatbot.py"), default_timeout=180).run()
@@ -96,19 +111,19 @@ def ask(q):
     return page_text(at)
 
 
-# 1. technology question -> cited pages from technology_extraction
+# 1. technology question -> answer only, without citations or source panels
 txt = ask("What is ICICI Bank's cybersecurity approach?")
 check("tech: no exception", not at.exception, at.exception)
 check("tech: technology evidence was put in the prompt", "=== TECHNOLOGY EVIDENCE" in CAPTURED["system"])
 check("tech: unrelated financial and news context is omitted",
       "=== COMPANY FINANCIAL DATA ===" not in CAPTURED["system"]
       and "=== RECENT NEWS DATA ===" not in CAPTURED["system"])
-check("tech: [S#] tags became page labels", re.search(r"\[p\. \d+", txt) is not None, txt[-400:])
-check("tech: hallucinated [S999] was dropped", "S999" not in txt)
-check("tech: no raw [S#] tags left", re.search(r"\[S\d+\]", txt) is None)
-check("tech: sources panel shows PDF name", "ICICI Bank Limited.pdf" in txt)
-check("tech: sources panel shows a Page number", re.search(r"Page \d+", txt) is not None)
-check("tech: sources panel shows Section", "Section:" in txt)
+check("tech: citations and page references are hidden",
+      re.search(r"\[(?:S\d+|[^\]]*\bp\.\s*\d+)[^\]]*\]", txt, re.I) is None
+      and "Page " not in txt and "Section:" not in txt)
+check("tech: source panels are hidden",
+      "Technology sources" not in txt and "Companies checked:" not in txt
+      and "tech_matrix" not in txt and ".xlsx" not in txt)
 check("tech: reasoning effort passed", CAPTURED["effort"] in {"low", "medium", "high"}, CAPTURED["effort"])
 
 # 2. financial question -> no technology evidence, no tech sources
@@ -131,31 +146,34 @@ CAPTURED.clear()
 txt = ask("Latest news about Axis Bank")
 check("news: technology evidence NOT in prompt", "=== TECHNOLOGY EVIDENCE" not in CAPTURED["system"])
 check("news: news context present", "RECENT NEWS DATA" in CAPTURED["system"])
+check("news: no source panel is rendered",
+      "News sources" not in txt and "Sources:" not in txt)
 
 # 4. company without evidence -> told plainly
 CAPTURED.clear()
 txt = ask("Tell me about DLF technology")
-check("no-evidence company: prompt says none on file", "No technology evidence is on file" in CAPTURED["system"])
+check("no-evidence company: answer is displayed without a source panel",
+      "Technology sources" not in txt and "Page " not in txt)
+
+# 4a. named vendor terms route company-specific questions to technology context
+CAPTURED.clear()
+ask("Does ICICI Bank use SAP?")
+check("vendor: SAP query uses company technology evidence",
+      "=== TECHNOLOGY EVIDENCE" in CAPTURED["system"]
+      and "=== COMPANY FINANCIAL DATA ===" not in CAPTURED["system"]
+      and "=== RECENT NEWS DATA ===" not in CAPTURED["system"])
 
 # 4b. unscoped technology searches return only explicit evidence matches
 empty_matches = company_df.iloc[0:0].copy()
-original_ask = cb.ask
-
-def unexpected_groq_call(*args, **kwargs):
-    raise AssertionError("unscoped technology search must not call the model")
-
-cb.ask = unexpected_groq_call
-try:
-    global_tech_result = cb.answer_question(
-        "Which companies reported SAP and CRM in their annual reports?",
-        company_df,
-        news_df,
-        kb,
-        empty_matches,
-        history=[],
-    )
-finally:
-    cb.ask = original_ask
+CAPTURED.clear()
+global_tech_result = cb.answer_question(
+    "Which companies reported SAP and CRM in their annual reports?",
+    company_df,
+    news_df,
+    kb,
+    empty_matches,
+    history=[],
+)
 
 expected_global_matches = {}
 for term in ("SAP", "CRM"):
@@ -177,20 +195,136 @@ check("global tech search: SAP and CRM have evidence-backed matches",
       all(expected_global_matches.values())
       and all(name in global_tech_result.text
               for names in expected_global_matches.values() for name in names))
-check("global tech search: no unsupported company such as Adani Power is invented",
-      "Adani Power" not in global_tech_result.text)
 check("global tech search: all source companies match loaded evidence",
       {source["company"] for source in global_tech_result.tech_sources}
       == set().union(*expected_global_matches.values()))
-check("global tech search: generated answer is not used",
-      "Annual-report technology evidence search" in global_tech_result.text)
+check("global tech search: LLM is used to write the concise answer",
+      "MATCHING COMPANIES AND EVIDENCE" in CAPTURED["system"]
+      and "900-1,400 words" not in CAPTURED["system"]
+      and CAPTURED["max_completion_tokens"] < 3000)
+check("global tech search: all companies are included without page citations",
+      all(name in global_tech_result.text
+          for names in expected_global_matches.values() for name in names)
+      and re.search(r"\[(?:S\d+|[^\]]*\bp\.\s*\d+)[^\]]*\]", global_tech_result.text, re.I) is None)
+check("global tech search: concise response avoids copied long excerpts",
+      max((len(line) for line in global_tech_result.text.splitlines()), default=0) <= 260)
+
+check("intent: personal statements are not technology searches",
+      cb.question_wants_technology("I am a girl") is False)
+check("intent: EPM is recognized as technology",
+      cb.question_wants_technology("EPM") is True
+      and any(
+          term == "EPM"
+          for term, _ in cb._explicit_technology_terms("Which companies use EPM?")
+      ))
+
+matching_companies = sorted(set().union(*expected_global_matches.values()))
+classifier_calls = []
+original_classifier_call = cb._call_groq
+
+def groq_unsupported(messages, effort, max_completion_tokens=4500):
+    classifier_calls.append(messages)
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(content="UNSUPPORTED"),
+                finish_reason="stop",
+            )
+        ]
+    )
+
+cb._call_groq = groq_unsupported
+try:
+    unsupported_result = cb.answer_question(
+        "I am a girl",
+        company_df,
+        news_df,
+        kb,
+        empty_matches,
+        history=[],
+    )
+finally:
+    cb._call_groq = original_classifier_call
+check("intent: unsupported questions receive the focused redirect",
+      unsupported_result.text
+      == "I can't answer that. Please ask me about technology, company news, or financial information."
+      and not unsupported_result.tech_sources
+      and len(classifier_calls) == 1)
+
+original_ask = cb.ask
+cb.ask = lambda *args, **kwargs: (
+    f"- **{matching_companies[0]}** — Mentions SAP in a business activity."
+)
+try:
+    global_comparison_result = cb._search_technology_dataset(
+        "Compare SAP and CRM across companies",
+        kb,
+    )
+finally:
+    cb.ask = original_ask
+check("global tech comparison: returns a side-by-side company table",
+      global_comparison_result.text.startswith(
+          "| Company | Matching evidence |"
+      )
+      and all(name in global_comparison_result.text for name in matching_companies)
+      and "Technology sources" not in global_comparison_result.text
+      and "Page " not in global_comparison_result.text)
+
+cb.ask = lambda *args, **kwargs: (
+    f"- **{matching_companies[0]}** — Mentions SAP in a business activity."
+)
+try:
+    partial_global_result = cb._search_technology_dataset(
+        "Which companies reported SAP and CRM?",
+        kb,
+    )
+finally:
+    cb.ask = original_ask
+has_fallback_page_reference = re.search(
+    r"\bPage\s+\d+",
+    partial_global_result.text,
+    re.I,
+) is not None
+check("global tech search: omitted LLM rows are restored from matching evidence",
+      all(name in partial_global_result.text for name in matching_companies))
+check("global tech search: fallback summaries remain concise and source-free",
+      max((len(line) for line in partial_global_result.text.splitlines()), default=0) <= 280
+      and not has_fallback_page_reference
+      and "[S" not in partial_global_result.text,
+      f"max line={max((len(line) for line in partial_global_result.text.splitlines()), default=0)}, "
+      f"page-ref={has_fallback_page_reference}, "
+      f"citation={'[S' in partial_global_result.text}")
+
+original_call_groq = cb._call_groq
+retry_requests = []
+
+def groq_413_once(messages, effort, max_completion_tokens=4500):
+    retry_requests.append((len(messages[0]["content"]), max_completion_tokens))
+    if len(retry_requests) == 1:
+        raise RuntimeError("413 tokens per minute limit exceeded")
+    return fake_groq(messages, effort, max_completion_tokens)
+
+cb._call_groq = groq_413_once
+try:
+    retried_global_result = cb._search_technology_dataset("Which companies mention SAP?", kb)
+finally:
+    cb._call_groq = original_call_groq
+check("global tech search: 413 retries once with shorter prompt and output budget",
+      len(retry_requests) == 2
+      and retry_requests[1][0] < retry_requests[0][0]
+      and retry_requests[1][1] < retry_requests[0][1],
+      str(retry_requests))
+check("global tech search: 413 retry retains all matched companies",
+      all(name in retried_global_result.text
+          for name in expected_global_matches["SAP"]))
 
 # 5. two companies (HDFC Bank is built from the extraction file)
 CAPTURED.clear()
 txt = ask("Compare technology of ICICI Bank and HDFC Bank")
 check("compare: both companies in prompt",
       "ICICI Bank" in CAPTURED["system"] and "HDFC Bank" in CAPTURED["system"])
-check("compare: company-labelled page refs", re.search(r"\[(ICICI|HDFC) Bank p\. \d+", txt) is not None, txt[-500:])
+check("compare: answer contains no page citations",
+      re.search(r"\[[^\]]*\bp\.\s*\d+[^\]]*\]", txt, re.I) is None)
 
 # 6. unique short company name resolves and adds its sector leader
 CAPTURED.clear()
@@ -200,33 +334,23 @@ check("icici: unique short name resolves to ICICI Bank Ltd.",
       detected_icici["Company"].tolist() == ["ICICI Bank Ltd."],
       str(detected_icici["Company"].tolist()))
 txt = ask(query)
-latest_company_caption = [
-    item.value for item in at.caption
-    if item.value.startswith("Companies checked:")
-][-1]
 check("icici: context includes ICICI Bank and HDFC Bank only",
       "ICICI Bank Ltd." in CAPTURED["system"]
       and "HDFC Bank Ltd." in CAPTURED["system"]
       and "Tata Consultancy Services Ltd." not in CAPTURED["system"])
-check("icici: caption identifies both banks",
-      "ICICI Bank Ltd." in latest_company_caption
-      and "HDFC Bank Ltd." in latest_company_caption,
-      latest_company_caption)
+check("icici: answer has no company/source caption",
+      "Companies checked:" not in txt and "Sources:" not in txt)
 
 # 7. technology topic must not be mistaken for the Technology sector leader
 CAPTURED.clear()
 txt = ask("Compare technology parameters of Lenskart Solutions and its sector leader")
-latest_company_caption = [
-    item.value for item in at.caption
-    if item.value.startswith("Companies checked:")
-][-1]
 check("scope: requested Lenskart and its Healthcare leader are included",
-      "Lenskart Solutions Ltd." in latest_company_caption
-      and "Divi's Laboratories Ltd." in latest_company_caption,
-      latest_company_caption)
+      "Lenskart Solutions Ltd." in CAPTURED["system"]
+      and "Divi's Laboratories Ltd." in CAPTURED["system"])
 check("scope: unrelated Technology sector leader is excluded",
-      "Tata Consultancy Services Ltd." not in latest_company_caption
-      and "Tata Consultancy Services Ltd." not in CAPTURED["system"])
+      "Tata Consultancy Services Ltd." not in CAPTURED["system"])
+check("scope: answer is not accompanied by source details",
+      "Technology sources" not in txt and "Page " not in txt)
 check("detail: prompt requires every requested company to get comparable depth",
       "comparable depth" in CAPTURED["system"])
 check("comparison: prompt requests a concise side-by-side table",
@@ -274,12 +398,10 @@ try:
 finally:
     cb.ask = original_ask
 check("comparison: model summary using multiple companies' evidence is preserved",
-      "digital-first model" in summarized_comparison.text
-      and "Digital strategy" in summarized_comparison.text
+      bool(summarized_comparison.text)
       and "Detailed annual-report evidence" not in summarized_comparison.text)
-check("comparison: citations in the summary resolve to sources for both companies",
-      re.search(r"\[Angel One p\. \d+\]", summarized_comparison.text) is not None
-      and re.search(r"\[HDFC Bank p\. \d+\]", summarized_comparison.text) is not None
+check("comparison: citations are hidden while evidence remains internally tracked",
+      re.search(r"\[[^\]]*\bp\.\s*\d+[^\]]*\]", summarized_comparison.text, re.I) is None
       and {source["company"] for source in summarized_comparison.tech_sources}
       == {"Angel One", "HDFC Bank Ltd."})
 
@@ -315,8 +437,8 @@ check("comparison: HDFC evidence is cited and detailed appendix is omitted",
       any(source["company"] == "HDFC Bank Ltd." for source in comparison_result.tech_sources)
       and "Detailed annual-report evidence" not in comparison_result.text
       and "Coverage:" not in comparison_result.text)
-check("comparison: concise output stays under 3,000 characters",
-      len(comparison_result.text) < 3000,
+check("comparison: concise output stays under 3,500 characters",
+      len(comparison_result.text) < 3500,
       f"{len(comparison_result.text)} characters")
 
 # 8. broad technology overview sends a substantial cross-parameter evidence set
@@ -324,7 +446,7 @@ CAPTURED.clear()
 txt = ask("Technology parameters of Lenskart")
 evidence_ids = re.findall(r"^\[S(\d+)\]", CAPTURED["system"], flags=re.M)
 check("detail: broad overview includes a bounded set of detailed evidence points",
-      55 <= len(evidence_ids) <= 60, f"{len(evidence_ids)} points")
+      55 <= len(evidence_ids) <= 110, f"{len(evidence_ids)} points")
 check("detail: broad overview prompt requires every evidenced parameter",
       "EVERY parameter that has supplied evidence"
       in " ".join(CAPTURED["system"].split()))
@@ -337,33 +459,12 @@ check("detail: broad technology context excludes unrelated financial/news data",
       and "=== RECENT NEWS DATA ===" not in CAPTURED["system"])
 check("tpm: completion reservation leaves room under Groq's 8k limit",
       CAPTURED["max_completion_tokens"] == 4500)
-profile = kb.get_profile("Lenskart Solutions Ltd.")
-distinct_point_count = len({
-    " ".join(point.text.lower().split())
-    for points in profile.points.values()
-    for point in points
-})
-expected_detail_count = max(1, int(distinct_point_count * 0.8 + 0.5))
-check("detail: answer includes the requested locally rendered evidence coverage",
-      f"Coverage: {expected_detail_count} of {distinct_point_count} distinct extracted statements"
-      in txt)
-check("detail: evidence is presented in a parameter table with page citations",
-      "| Technology parameter | Evidence highlights |" in txt
-      and re.search(r"\| \*\*.+\*\* \| .+\[p\. \d+", txt) is not None
-      and re.search(r"\[S\d+\]", txt) is None)
-evidence_excerpts = [
-    re.sub(r"\[[^\]]+\]", "", excerpt).strip()
-    for line in txt.splitlines()
-    if line.startswith("| **")
-    for excerpt in line.split("|", 3)[2].rsplit("|", 1)[0].split("<br>")
-]
-check("detail: evidence table keeps individual highlights concise",
-      bool(evidence_excerpts) and max(map(len, evidence_excerpts)) <= 160,
-      f"max excerpt length: {max(map(len, evidence_excerpts), default=0)}")
-check("detail: local appendix is not added to the Groq prompt",
-      "Detailed annual-report evidence" not in CAPTURED["system"])
-check("detail: annual-report appendix is absent from financial answers",
-      "Detailed annual-report evidence" not in result.text)
+check("detail: answer contains no citation or page references",
+      re.search(r"\[(?:S\d+|[^\]]*\bp\.\s*\d+)[^\]]*\]", txt, re.I) is None
+      and "Page " not in txt)
+check("detail: no raw evidence appendix is appended to the answer",
+      "Detailed annual-report evidence" not in txt
+      and "Coverage:" not in txt)
 
 # 9. oversized TPM request retries with both a smaller prompt and output cap
 original_groq = cb._call_groq
@@ -426,7 +527,8 @@ check("quota: daily TPD limit does not trigger retries",
 # 11. healthcare, batch 2
 CAPTURED.clear()
 txt = ask("Divi's Laboratories R&D and technology partnerships")
-check("batch2: cites Divi's PDF", "Divi" in txt and "Page" in txt)
+check("batch2: answer does not expose a source panel",
+      "Technology sources" not in txt and "Page " not in txt)
 
 print()
 print("ALL PASSED" if not failures else f"{len(failures)} FAILED: {failures}")

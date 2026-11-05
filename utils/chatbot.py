@@ -40,6 +40,15 @@ def get_reasoning_effort() -> str:
 
     return value if value in {"low", "medium", "high"} else "low"
 
+def show_sources() -> bool:
+    """Show page references / Sources panel? Off by default (answer only).
+
+    Set SHOW_SOURCES=true in .env or Streamlit secrets to bring them back.
+    """
+
+    return _get_secret("SHOW_SOURCES", "false").lower() in {"1", "true", "yes", "on"}
+
+
 def get_tech_point_budget() -> int:
 
     """Max technology evidence points placed in front of the model per question."""
@@ -1843,7 +1852,7 @@ def _search_technology_dataset(
 
 
 
-def answer_question(
+def _answer_question_impl(
 
     question: str,
 
@@ -2128,3 +2137,30 @@ def answer_question(
         sources_are_citations=False,
 
     )
+
+
+_PAGE_LABEL = re.compile(
+    r"\s*\[(?:[^\]\[]*?\bp{1,2}\.\s*\d*[^\]\[]*)\]"
+)
+
+
+def answer_question(
+    question: str,
+    company_df: pd.DataFrame,
+    news_df: pd.DataFrame,
+    kb: TechKnowledgeBase,
+    matched_companies: pd.DataFrame,
+    history=None,
+) -> ChatAnswer:
+    """Company-specific answer. Returns the answer only (no page references or
+    sources) unless SHOW_SOURCES is switched on."""
+
+    result = _answer_question_impl(
+        question, company_df, news_df, kb, matched_companies, history=history
+    )
+    if show_sources() or question_wants_detailed_technology_evidence(question):
+        return result
+    result.text = _PAGE_LABEL.sub("", result.text)
+    result.text = re.sub(r"[ \t]+([.,;:])", r"\1", result.text)
+    result.tech_sources = []
+    return result
